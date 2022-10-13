@@ -113,7 +113,8 @@ The resulting data set has `r nrow(accel_data)` rows and `r ncol(accel_data)` co
 ```{r}
 accel_data %>% 
   group_by(day_id) %>%
-  summarise(total_activity = sum(activity))
+  summarise(total_activity = sum(activity)) %>%
+  knitr::kable(digits = 1)
   
 
 ```
@@ -123,8 +124,12 @@ The trends are not apparent.
 ggplot(data = accel_data, 
        aes(x = minute, y = activity, color = day)) +
   geom_point(alpha = .5) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(title = "24-hour activity time courses")
 ```
+
+It seems for every day in a week, there is a specific period of time that has low activity. At other times of the day, there is a day-effect on the time that the participant did activity. There are dots that are on top of one another, forming a straight line. These dots are all in the same color, indicating the same day of the week. In general, the participant did more activity in the morning (assumingly) on Fridays and Saturdays, in later of the day (assumingly) on Thursdays and Tuesdays.
+
 
 # Problem 3
 
@@ -148,26 +153,29 @@ clean_ny_noaa <- ny_noaa %>%
 ```{r}
 clean_ny_noaa %>%
   count(snow, name = "count") %>%
-  top_n(1, count)
+  top_n(1, count) %>%
+  knitr::kable(digits = 1)
   
 ```
 The most commonly observed value is 0. It might be because the actual data is documented in the `snwd` column. 
 
 ```{r avg max temp plot}
 clean_ny_noaa  %>%
-  filter(month %in% c("07","01")) %>%
-  group_by(year, month) %>%
-  # calculate average of max temperatures for observations in each month, year
-  mutate(avg_tmax = mean(tmax, na.rm = TRUE)) %>%
+  filter(month %in% c("01","07"))  %>%
+  group_by(year, month, id) %>%
+  # calculate average of max temperatures for observations in each station in each month, year
+  summarize(avg_tmax = mean(tmax, na.rm = TRUE)) %>%
+  ungroup() %>%
   # make plot
-  ggplot(aes(x = year, y = avg_tmax)) +
-  geom_point(alpha = .5) +
+  ggplot(aes(x = year, y = avg_tmax, group = id)) +
+  geom_line(alpha = .2) +
   # create facets based on month
   facet_wrap(. ~ month) + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  labs(title = "Average Max Temperature")
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none") +
+  labs(title = "Average max temperature for each station", y = "average max temperature" )
 ```
-It seems like the average temperatures in July are all higher than those in January across these years. Average temperatures in July seem to have a lower variance than those in January. There is no significant outliers. 
+It seems like the average temperatures in July are all higher than those in January across these years. Average temperatures in July seem to have a lower variance than those in January. Also, it seems that for both January and July, the average max temperatures has similar fluctuation around the same years. There is one significant outlier in approximately 1988 July.  
 
 ```{r temp and snowfall plot}
 tmax_tmin_p <- clean_ny_noaa %>%
