@@ -13,6 +13,7 @@ library(lubridate)
 library(ggplot2)
 library(p8105.datasets)
 library(patchwork)
+library(ggridges)
 data("ny_noaa")
 data("instacart")
 ```
@@ -112,7 +113,8 @@ The resulting data set has `r nrow(accel_data)` rows and `r ncol(accel_data)` co
 
 ```{r}
 accel_data %>% 
-  group_by(day_id) %>%
+  mutate(day = factor(day)) %>%
+  group_by(day) %>%
   summarise(total_activity = sum(activity)) %>%
   knitr::kable(digits = 1)
   
@@ -123,12 +125,12 @@ The trends are not apparent.
 ```{r}
 ggplot(data = accel_data, 
        aes(x = minute, y = activity, color = day)) +
-  geom_point(alpha = .5) +
+  geom_point(alpha = .2) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   labs(title = "24-hour activity time courses")
 ```
 
-It seems for every day in a week, there is a specific period of time that has low activity. At other times of the day, there is a day-effect on the time that the participant did activity. There are dots that are on top of one another, forming a straight line. These dots are all in the same color, indicating the same day of the week. In general, the participant did more activity in the morning (assumingly) on Fridays and Saturdays, in later of the day (assumingly) on Thursdays and Tuesdays.
+It seems for every day in a week, there is a specific period of time that has low activity. At other times of the day, there is a day-effect on the time that the participant did activity. There are dots that are on top of one another, forming a straight line. These dots are all in the same color, indicating the same day of the week. In general, the participant did more activity in the morning (assuming min 1 is midnight) on Fridays and Saturdays, in later of the day (assuming min 1 is midnight) on Thursdays and Tuesdays.
 
 
 # Problem 3
@@ -189,12 +191,12 @@ tmax_tmin_p <- clean_ny_noaa %>%
 
 snowfall_p <- clean_ny_noaa %>%
   filter(snow < 100 & snow > 0) %>%
-  ggplot(aes(x = snow, fill = year)) + 
-  geom_density(alpha = .3) +
+  ggplot(aes(x = snow, y = year)) + 
+  geom_density_ridges(alpha = .3) +
   theme(legend.position = "right") +
   labs(title = "Distribution of snowfall", x = "snowfall")
 
-tmax_tmin_p/snowfall_p
+tmax_tmin_p + snowfall_p
   
 ```
 
