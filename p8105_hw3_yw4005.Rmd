@@ -20,7 +20,7 @@ data("instacart")
 
 ```{r graph settings}
 knitr::opts_chunk$set(
-  fig.width = 6,
+  fig.width = 8,
   fig.asp = .6,
   out.width = "90%"
 )
@@ -101,40 +101,43 @@ instacart %>%
 ```{r}
 # load and clean accelerometers data set
 accel_data <- read_csv("./Data/accel_data.csv") %>%
-  # pivot activity.* columns longer
+  # clean names
+  clean_names() %>%
+  # pivot activity_* columns longer
   # minute column has the minute number associated with activity
   # activity column has corresponding values to the original activity.* columns
   pivot_longer(
-    cols = starts_with("activity"),
+    cols = starts_with("activity_"),
     names_to = "minute",
-    names_prefix = "activity.",
+    names_prefix = "activity_",
     values_to = "activity"
   ) %>%
-  # clean names
-  clean_names() %>%
-  # create a column to denote if the day value is weekday or weekend
-  mutate(is_weekday = ifelse(day %in% c("Saturday", "Sunday"),
-                             FALSE,
-                             TRUE))
+  mutate(
+    # create a column to denote if the day value is weekday or weekend
+    day_type = ifelse(day %in% c("Saturday", "Sunday"),
+                             "weekend",
+                             "weekday"),
+    # make day factors for calculating total activities later
+    day = factor(
+      day,
+      levels = c(
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      )
+    ),
+    # convert minute to numbers
+    minute = as.integer(minute))
 ```
 
-The resulting data set has `r nrow(accel_data)` rows and `r ncol(accel_data)` columns. It contains `r colnames(accel_data)` columns. It contains 5 weeks of data of an accelerometer worn by a patient.
+The resulting data set has `r nrow(accel_data)` rows and `r ncol(accel_data)` columns. It contains `r colnames(accel_data)` columns. It contains 5 weeks of data of an accelerometer worn by a patient. The data is documented at each minute interval in 24 hours for each day.
 
 ```{r}
 accel_data %>%
-  # make day factors
-  mutate(day = factor(
-    day,
-    levels = c(
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday"
-    )
-  )) %>%
   group_by(day) %>%
   # calculate total activity
   summarise(total_activity = sum(activity)) %>%
@@ -147,23 +150,26 @@ There are more activities from Wednesday to Friday. Other days of the week have 
 ```{r}
 # create plot
 ggplot(data = accel_data,
-       aes(x = minute, y = activity, color = day)) +
-  geom_point(alpha = .2) +
+  aes(x = minute, y = activity, color = day)) +
+  geom_line(alpha = .3) +
+  # rotate x-axis labels
   theme(axis.text.x = element_text(
     angle = 90,
     vjust = 0.5,
     hjust = 1
   )) +
   # add title
-  labs(title = "24-hour activity time courses")
+  labs(title = "24-hour activity time courses") + 
+  # move legend to the right
+  theme(legend.position = "right")
+  
 ```
 
-It seems for every day in a week, there is a specific period of time that has low activity. At other times of the day, there is a day-effect on the time that the participant did activity. There are dots that are on top of one another, forming a straight line. These dots are all in the same color, indicating the same day of the week. In general, the participant did more activity in the morning (assuming min 1 is midnight) on Fridays and Saturdays, in later of the day (assuming min 1 is midnight) on Thursdays and Tuesdays.
+Assume min 1 is midnight. It seems for every day in a week, there is a specific period of time (might be mornings) that has low activity. At other times of the day, there is a day-effect on the time that the participant did activity. There a cluster of yellow line for Sundays at centered at a period of time and some clusters for days in the early part of the week. In general, the participant did more activity in  very-early morning and evenings on of weekdays, more activity in the late morning and afternoon at weekends.
 
 
 # Problem 3
 
-The `ny_noaa` data set has `r nrow(ny_noaa)` rows and `r ncol(ny_noaa)` columns. It contains precipitation, snowfall, depth of snow and min and max temperatures of each documented NY state weather stations from `r min(ny_noaa$date)` and `r max(ny_noaa$date)`. Just by looking at the data, there are a lot of cells with NAs. Sometimes, there is no information about precipitation, snowfall, depth of snow and min and max temperatures for a particular station and a date. min and max temperatures are missing for a lot of stations and dates.
 ```{r cleaning}
 clean_ny_noaa <- ny_noaa %>%
   # clean names
@@ -182,6 +188,10 @@ clean_ny_noaa <- ny_noaa %>%
   )
 ```
 
+The `ny_noaa` data set has `r nrow(ny_noaa)` rows and `r ncol(ny_noaa)` columns. It contains precipitation, snowfall, depth of snow and min and max temperatures of each documented NY state weather stations from `r min(ny_noaa$date)` and `r max(ny_noaa$date)`. Just by looking at the data, there are a lot of cells with NAs. Sometimes, there is no information about precipitation, snowfall, depth of snow and min and max temperatures for a particular station and a date. min and max temperatures are missing for a lot of stations and dates.
+
+The cleaned data set has `r nrow(clean_ny_noaa)` rows and `r ncol(clean_ny_noaa)` columns. 
+
 ```{r}
 clean_ny_noaa %>%
   # count values
@@ -191,7 +201,7 @@ clean_ny_noaa %>%
   knitr::kable(digits = 1)
   
 ```
-The most commonly observed value is 0. It might be because the actual data is documented in the `snwd` column. 
+The most commonly observed value is 0. It might be because the actual data is documented in the `snwd` column. Or it could also be another way for documenting missing values, instead of using NAs.
 
 ```{r avg max temp plot}
 clean_ny_noaa  %>%
@@ -216,9 +226,10 @@ clean_ny_noaa  %>%
   # add title and label
   labs(title = "Average max temperature for each station", y = "average max temperature")
 ```
+
 It seems like the average temperatures in July are all higher than those in January across these years. Average temperatures in July seem to have a lower variance than those in January. Also, it seems that for both January and July, the average max temperatures has similar fluctuation around the same years. There is one significant outlier in approximately 1988 July.  
 
-```{r temp and snowfall plot}
+```{r temp and snowfall plot, out.width="100%"}
 tmax_tmin_p <- clean_ny_noaa %>%
   # reformat data
   pivot_longer(
@@ -230,7 +241,7 @@ tmax_tmin_p <- clean_ny_noaa %>%
   ggplot(aes(x = temp_type, y = temp_value)) +
   geom_boxplot() +
   labs(title = "Max Temperature vs. Min Temperature",
-       plot.title = element_text(size=10))
+       plot.title = element_text(size=8))
 
 
 snowfall_p <- clean_ny_noaa %>%
@@ -244,12 +255,11 @@ snowfall_p <- clean_ny_noaa %>%
   # add title and label
   labs(title = "Distribution of snowfall",
        x = "snowfall",
-       plot.title = element_text(size = 10))
+       plot.title = element_text(size = 8))
 
 tmax_tmin_p + snowfall_p
   
 ```
-
 
 
 
